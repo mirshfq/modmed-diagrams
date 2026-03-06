@@ -1,4 +1,4 @@
-# ModMed Integration — Diagrams (EHRService)
+# ModMed Integration — Diagrams
 
 Mermaid diagrams for the ModMed EHR integration: token flow (S3), Lambda routing, GraphQL delegation, and note ingestion.
 
