@@ -314,28 +314,28 @@ sequenceDiagram
 sequenceDiagram
     participant SQS as SQS (authority: MODMED)
     participant Index as index.js
-    participant Note as note.modmedNoteHandler
+    participant Handler as note.modmedNoteHandler
     participant DB as Database
     participant Auth as auth.getValidToken
     participant S3 as S3
     participant ModMed as ModMed FHIR API (Composition)
 
     SQS->>Index: Message (noteUserDetails)
-    Index->>Note: modmedNoteHandler(noteUserDetails)
+    Index->>Handler: modmedNoteHandler(noteUserDetails)
 
-    Note->>Note: Validate patient has MODMED identifier
-    Note->>DB: getProvider, getPatient (ehrIdentities, healthSystems)
-    DB-->>Note: providerData (ehrIdentities.modmed.practitionerId), patientId, encounterId
+    Handler->>Handler: Validate patient has MODMED identifier
+    Handler->>DB: getProvider, getPatient (ehrIdentities, healthSystems)
+    DB-->>Handler: providerData (ehrIdentities.modmed.practitionerId), patientId, encounterId
 
-    Note->>Auth: getValidToken()
+    Handler->>Auth: getValidToken()
     Auth->>S3: getFileFromS3
     S3-->>Auth: tokenData
-    Auth-->>Note: tokenData
+    Auth-->>Handler: tokenData
 
-    Note->>ModMed: POST Composition (patientId, practitionerId, encounterId, title, bodyText)
-    ModMed-->>Note: 201 Created
-    Note->>DB: createNotesLogs (e.g. NoteCopiedToModmed)
-    Note-->>Index: done
+    Handler->>ModMed: POST Composition (patientId, practitionerId, encounterId, title, bodyText)
+    ModMed-->>Handler: 201 Created
+    Handler->>DB: createNotesLogs (e.g. NoteCopiedToModmed)
+    Handler-->>Index: done
 ```
 
 ---
