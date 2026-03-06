@@ -83,7 +83,76 @@ flowchart TB
 
 ---
 
-## 2. Token resolution flow (flowchart)
+## 2. Platform architecture (overview)
+
+```mermaid
+flowchart TB
+    subgraph Client["Client / Front-end"]
+        UI[Provider app / Web]
+    end
+
+    subgraph Playback["Playback Health Platform"]
+        GQL[GraphQL API]
+        ONB[onboarding-rest-service]
+        EHR[EHRService Lambda]
+    end
+
+    subgraph Data["Data & External"]
+        DB[(Database)]
+        S3[(S3 creds)]
+        SECRETS[AWS Secrets Manager]
+        MODMED[ModMed / EMA FHIR API]
+    end
+
+    UI -->|"POST /providers (email sign-up)"| ONB
+    UI -->|"Patient search, etc."| GQL
+
+    ONB -->|"domain → loginSystem"| DB
+    ONB -->|"getPractitionerByEmail"| MODMED
+    ONB -->|"token get/refresh"| S3
+    ONB -->|"global.modmed"| SECRETS
+    ONB -->|"create User/Provider, ehrIdentities.modmed"| DB
+
+    GQL -->|"loginSystem === 'modmed' → delegate"| EHR
+    GQL -->|"other enterprises"| DB
+
+    EHR -->|"read ehrIdentities.modmed"| DB
+    EHR -->|"getValidToken"| S3
+    EHR -->|"global.modmed"| SECRETS
+    EHR -->|"Patient, Encounter, Practitioner, Composition"| MODMED
+```
+
+---
+
+## 3. ModMed provider sign-up flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Onboarding as onboarding-rest-service
+    participant DB as Database
+    participant ModMed as ModMed FHIR API
+    participant S3 as S3
+    participant Firebase
+
+    Client->>Onboarding: POST /providers { email, name, signUpMethod: "email" }
+    Onboarding->>DB: isPlaybackLoginSystem(email) → domain → Enterprise.loginSystem
+    alt loginSystem === "modmed"
+        Onboarding->>Onboarding: getValidToken() [S3 or new grant]
+        Onboarding->>S3: read /creds/modmedCred.json (if needed)
+        Onboarding->>ModMed: GET Practitioner?email=...
+        ModMed-->>Onboarding: practitioner (id, npi, ...)
+        Onboarding->>DB: getEnterpriseIdFromDomain(domain)
+        Onboarding->>Onboarding: registerModMedProvider(payload, practitioner)
+        Onboarding->>Firebase: createFirebaseUser (if needed)
+        Onboarding->>DB: createUser, createProvider(ehrIdentities.modmed)
+        Onboarding-->>Client: customToken, userData
+    end
+```
+
+---
+
+## 4. Token resolution flow (flowchart)
 
 How `getValidToken()` in `auth.js` obtains the access token: S3 read → expire check → refresh or password grant.
 
@@ -124,7 +193,7 @@ flowchart LR
 
 ---
 
-## 3. Lambda event routing (flowchart)
+## 5. Lambda event routing (flowchart)
 
 How `lambdaClienthandler.main` routes by `eventType` and `loginSystem` to ModMed functions.
 
@@ -155,7 +224,7 @@ flowchart TB
 
 ---
 
-## 4. Sequence: getValidToken (S3 read, refresh, or password grant)
+## 6. Sequence: getValidToken (S3 read, refresh, or password grant)
 
 ```mermaid
 sequenceDiagram
@@ -198,7 +267,7 @@ sequenceDiagram
 
 ---
 
-## 5. Sequence: GraphQL → Lambda → getPatientList (ModMed)
+## 7. Sequence: GraphQL → Lambda → getPatientList (ModMed)
 
 ```mermaid
 sequenceDiagram
@@ -236,7 +305,7 @@ sequenceDiagram
 
 ---
 
-## 6. Sequence: GraphQL → Lambda → getEncounterList (ModMed)
+## 8. Sequence: GraphQL → Lambda → getEncounterList (ModMed)
 
 ```mermaid
 sequenceDiagram
@@ -273,7 +342,7 @@ sequenceDiagram
 
 ---
 
-## 7. Sequence: GraphQL → Lambda → searchPatientList (ModMed)
+## 9. Sequence: GraphQL → Lambda → searchPatientList (ModMed)
 
 ```mermaid
 sequenceDiagram
@@ -308,7 +377,7 @@ sequenceDiagram
 
 ---
 
-## 8. Sequence: Note ingestion (SQS → modmedNoteHandler)
+## 10. Sequence: Note ingestion (SQS → modmedNoteHandler)
 
 ```mermaid
 sequenceDiagram
@@ -340,7 +409,7 @@ sequenceDiagram
 
 ---
 
-## 9. Component overview (flowchart)
+## 11. Component overview (flowchart)
 
 Where ModMed-related code lives and how it connects.
 
